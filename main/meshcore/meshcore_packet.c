@@ -1,5 +1,5 @@
 #include "meshcore_packet.h"
-#include "mbedtls/md.h"
+#include "psa/crypto.h"
 #include <string.h>
 #include "esp_log.h"
 #include "ed25519.h"
@@ -299,15 +299,26 @@ bool meshcore_packet_calculate_hash(meshcore_packet_t *pkt)
     uint8_t t = (uint8_t)pkt->payload_type;
     uint8_t full_hash[32] = {0};
 
-    mbedtls_md_context_t ctx;
-    mbedtls_md_init(&ctx);
-    mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 0);
-    mbedtls_md_starts(&ctx);
-    mbedtls_md_update(&ctx, &t, sizeof(t));
-    // FIXME add path_size to hash for trace packets
-    mbedtls_md_update(&ctx, pkt->payload_raw, pkt->payload_raw_len);
-    mbedtls_md_finish(&ctx, full_hash);
-    mbedtls_md_free(&ctx);
+    psa_hash_operation_t operation = PSA_HASH_OPERATION_INIT;
+    psa_status_t status = psa_hash_setup(&operation, PSA_ALG_SHA_256);
+    if(status != PSA_SUCCESS){
+        ESP_LOGW(TAG, "Failed to setup hash operation, status: %d", status);
+        return false;
+    }
+
+    if(psa_hash_update(&operation, &t, sizeof(t)) != PSA_SUCCESS){
+        ESP_LOGW(TAG, "Failed to update hash operation, status: %d", status);
+        return false;
+    }
+    if(psa_hash_update(&operation, pkt->payload_raw, pkt->payload_raw_len) != PSA_SUCCESS){
+        ESP_LOGW(TAG, "Failed to update hash operation, status: %d", status);
+        return false;
+    }
+    size_t hash_size = 0;
+    if(psa_hash_finish(&operation, full_hash, sizeof(full_hash), &hash_size) != PSA_SUCCESS){
+        ESP_LOGW(TAG, "Failed to finish hash operation, status: %d", status);
+        return false;
+    }
 
     memcpy(pkt->hash, full_hash, MESHCORE_PACKET_HASH_SIZE);
     return true;
