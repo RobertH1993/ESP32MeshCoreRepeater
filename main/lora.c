@@ -255,7 +255,6 @@ bool lora_set_radio_mode(sx126x_device_t *device, lora_radio_mode_t mode){
 
 
         // Turn FEM to TX mode
-        set_fem_mode(false);
         if(set_fem_mode(false) != ESP_OK){
             ESP_LOGE(TAG, "Failed to set FEM mode to TX");
             return false;
@@ -275,7 +274,6 @@ bool lora_set_radio_mode(sx126x_device_t *device, lora_radio_mode_t mode){
         }
 
         // Turn FEM to RX mode
-        set_fem_mode(true);
         if(set_fem_mode(true) != ESP_OK){
             ESP_LOGE(TAG, "Failed to set FEM mode to RX");
             return false;

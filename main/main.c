@@ -20,7 +20,7 @@
 #include "esp_random.h"
 #include "ed25519/ed25519.h"
 #include "driver/i2c_master.h"
-
+#include "board.h"
 
 static const char TAG[] = "main";
 
@@ -45,9 +45,10 @@ esp_err_t generate_identity(meshcore_identity_t *out){
     ed25519_create_keypair((unsigned char*)out->key_pair.pub_key, (unsigned char*)out->key_pair.priv_key, seed);
     ESP_LOGI(TAG, "Public key:");
     ESP_LOG_BUFFER_HEX(TAG, out->key_pair.pub_key, 32);
-    ESP_LOGI(TAG, "Private key:");
-    ESP_LOG_BUFFER_HEX(TAG, out->key_pair.priv_key, 64);
     out->has_location = false;
+    snprintf(out->name, sizeof(out->name), "ESP32MeshCoreRepeater-%u", (uint16_t)(esp_random() % 10000));
+
+
     ESP_LOGI(TAG, "Identity generated");
     return ESP_OK;
 }
@@ -95,11 +96,6 @@ void app_main(void)
     ESP_ERROR_CHECK(nvs_ret);
     ESP_LOGI(TAG, "NVS initialized");
 
-
-    nvs_handle_t identity_nvs_handle = 0;
-    ESP_ERROR_CHECK(nvs_open(MESHCORE_IDENTITY_NVS_NAMESPACE, NVS_READWRITE, &identity_nvs_handle));
-    ESP_LOGI(TAG, "NVS identity handle opened");
-
     // Enable dynamic power management, the ESP32-S3 is fairly overpowered.
     esp_pm_config_t pm_config = {
         .max_freq_mhz = 160,
@@ -125,7 +121,6 @@ void app_main(void)
     ESP_LOGI(TAG, "I2C bus initialized");
     ESP_ERROR_CHECK(white_led_init());
 
-
     // static: these structs must outlive app_main; local variables would be
     // freed when app_main returns, leaving the rx_task with dangling pointers.
     static sx126x_device_t lora_radio = {0};
@@ -138,9 +133,6 @@ void app_main(void)
 
     // Generate the identity
     static RTC_FAST_ATTR meshcore_identity_t meshcore_identity = {0};
-    meshcore_identity.has_location = false;
-    strncpy(meshcore_identity.name, "irri-repeater", 32);
-
 
     ESP_ERROR_CHECK(load_or_create_identity(&meshcore_identity));
     ESP_LOG_BUFFER_HEX(TAG, meshcore_identity.key_pair.pub_key, 32);
