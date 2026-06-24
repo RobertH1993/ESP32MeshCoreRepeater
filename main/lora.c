@@ -201,7 +201,6 @@ esp_err_t lora_start_rx_polling(sx126x_device_t *device, uint8_t * rx_buffer, ui
 bool lora_set_radio_mode(sx126x_device_t *device, lora_radio_mode_t mode){
     if(mode == LORA_MODE_RX){
         // Turn FEM to RX mode
-        set_fem_mode(true);
         if(set_fem_mode(true) != ESP_OK){
             ESP_LOGE(TAG, "Failed to set FEM mode to RX");
             return false;
@@ -223,7 +222,7 @@ bool lora_set_radio_mode(sx126x_device_t *device, lora_radio_mode_t mode){
         };
         if(sx126x_set_lora_pkt_params(device, &pkt_params) != SX126X_STATUS_OK) {
             ESP_LOGE(TAG, "Failed to set LoRa packet parameters");
-            return ESP_FAIL;
+            return false;
         }
 
         // Hook the RX ISR to the DIO1 interrupt
@@ -332,20 +331,20 @@ void lora_rx_task(void *pvParameters){
         // Reset IRQ status inside the SX126X device
         if(sx126x_get_and_clear_irq_status(task_data->device, NULL) != SX126X_STATUS_OK){
             ESP_LOGE(TAG, "Failed to get and clear IRQ status");
-            return;
+            goto fail;
         }
 
         // Get the RX buffer status
         sx126x_rx_buffer_status_t rx_buffer_status;
         if(sx126x_get_rx_buffer_status(task_data->device, &rx_buffer_status) != SX126X_STATUS_OK){
             ESP_LOGE(TAG, "Failed to get RX buffer status");
-            return;
+            goto fail;
         }
 
-        // Read the RX buffer into DMA aligned buffer
+        // Read the RX buffer into DMA aligned buffer, we dont read directly into the packet data because the packet data is not DMA aligned.
         if(sx126x_read_buffer(task_data->device, rx_buffer_status.buffer_start_pointer, task_rx_buffer, rx_buffer_status.pld_len_in_bytes) != SX126X_STATUS_OK){
             ESP_LOGE(TAG, "Failed to read RX buffer");
-            return;
+            goto fail;
         }
         ESP_LOG_BUFFER_HEX(TAG, task_rx_buffer, rx_buffer_status.pld_len_in_bytes);
 
@@ -353,7 +352,7 @@ void lora_rx_task(void *pvParameters){
         sx126x_pkt_status_lora_t pkt_status;
         if(sx126x_get_lora_pkt_status(task_data->device, &pkt_status) != SX126X_STATUS_OK){
             ESP_LOGE(TAG, "Failed to get LoRa packet status");
-            return;
+            goto fail;
         }
         ESP_LOGD(TAG, "pkt_status: rssi_pkt_in_dbm=%d, snr_pkt_in_db=%d, signal_rssi_pkt_in_dbm=%d", pkt_status.rssi_pkt_in_dbm, pkt_status.snr_pkt_in_db, pkt_status.signal_rssi_pkt_in_dbm);
 
@@ -364,14 +363,19 @@ void lora_rx_task(void *pvParameters){
             .snr = pkt_status.snr_pkt_in_db,
             .signal_rssi = pkt_status.signal_rssi_pkt_in_dbm,
         };
-        memcpy(packet.data, task_rx_buffer, rx_buffer_status.pld_len_in_bytes);
+        if(memcpy(packet.data, task_rx_buffer, rx_buffer_status.pld_len_in_bytes) != 0){
+            ESP_LOGE(TAG, "Failed to copy RX buffer to lora packet data");
+            goto fail;
+        }
 
         // Put the packet in the output queue
         if(xQueueSend(task_data->queue, &packet, portMAX_DELAY) != pdPASS){
             ESP_LOGE(TAG, "Failed to send packet to queue");
-            return;
+            goto fail;
         }
 
+
+        fail:
         xSemaphoreGive(task_data->device->mutex);
     }
 

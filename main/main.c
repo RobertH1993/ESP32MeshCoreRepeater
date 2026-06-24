@@ -19,6 +19,7 @@
 #include <string.h>
 #include "esp_random.h"
 #include "ed25519/ed25519.h"
+#include "driver/i2c_master.h"
 
 
 static const char TAG[] = "main";
@@ -70,6 +71,7 @@ esp_err_t load_or_create_identity(meshcore_identity_t *out){
         ESP_ERROR_CHECK(generate_identity(out));
         ESP_ERROR_CHECK(nvs_set_blob(identity_nvs_handle, MESHCORE_IDENTITY_NVS_KEY, out, sizeof(meshcore_identity_t)));
         ESP_ERROR_CHECK(nvs_commit(identity_nvs_handle));
+        ret = ESP_OK;
     }
 
     // Close the NVS handle
@@ -109,18 +111,18 @@ void app_main(void)
     ESP_ERROR_CHECK(set_vext(false));
 
     // Initialize I2C bus
-    //ESP_LOGI(TAG, "Init I2C");
-    //i2c_master_bus_handle_t i2c_bus = NULL;
-    //i2c_master_bus_config_t i2c_bus_config = {
-    //    .clk_source = I2C_CLK_SRC_DEFAULT,
-    //    .glitch_ignore_cnt = 7,
-    //    .i2c_port = I2C_NUM_0,
-    //    .sda_io_num = PIN_BOARD_SDA,
-    //    .scl_io_num = PIN_BOARD_SCL,
-    //    .flags.enable_internal_pullup = true,
-    //};
-    //ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_config, &i2c_bus));
-    //ESP_LOGI(TAG, "I2C bus initialized");
+    ESP_LOGI(TAG, "Init I2C");
+    i2c_master_bus_handle_t i2c_bus = NULL;
+    i2c_master_bus_config_t i2c_bus_config = {
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .glitch_ignore_cnt = 7,
+        .i2c_port = I2C_NUM_0,
+        .sda_io_num = PIN_BOARD_SDA,
+        .scl_io_num = PIN_BOARD_SCL,
+        .flags.enable_internal_pullup = true,
+    };
+    ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_config, &i2c_bus));
+    ESP_LOGI(TAG, "I2C bus initialized");
     ESP_ERROR_CHECK(white_led_init());
 
 
@@ -171,5 +173,4 @@ void app_main(void)
     xTaskCreatePinnedToCore(lora_tx_task, "lora_tx_task", 4096, &lora_tx_task_data, 1, &lora_tx_task_handle, 1);
     xTaskCreatePinnedToCore(meshcore_decoder_task, "meshcore_decoder_task", 8192, &meshcore_decoder_task_data, 1, NULL, 1);
     xTaskCreatePinnedToCore(meshcore_repeater_advertise_task, "meshcore_repeater_advertise_task", 4096, &meshcore_repeater_advertise_task_data, 1, NULL, 1);
-
 }

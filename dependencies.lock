@@ -17,5 +17,5 @@ direct_dependencies:
 - idf
 - waveshare/esp_oled_ssd1315
 manifest_hash: 52fc31838da690906dee8e33b616cc76666d711baa004e50c7db08155953f4fc
-target: esp32s3
+target: esp32
 version: 3.0.0

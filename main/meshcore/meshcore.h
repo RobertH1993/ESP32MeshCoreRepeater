@@ -3,9 +3,6 @@
 
 #include <stdint.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 typedef enum {
     MESHCORE_ROUTE_TRANSPORT_FLOOD  = 0x00,  /* flood + transport codes */
@@ -58,8 +55,8 @@ typedef struct {
 } meshcore_contact_t;
 
 typedef struct __attribute__((packed)) {
-    uint32_t pub_key[32];
-    uint32_t priv_key[64];
+    uint8_t pub_key[32];
+    uint8_t priv_key[64];
 } meshcore_key_pair_t;
 
 typedef struct __attribute__((packed)) {
@@ -69,6 +66,8 @@ typedef struct __attribute__((packed)) {
     uint32_t latitude;
     uint32_t longitude;
 } meshcore_identity_t;
+
+
 
 #endif
 

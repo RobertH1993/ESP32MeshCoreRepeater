@@ -119,9 +119,7 @@ at runtime using SHA-256 and stored in the `meshcore_channel_t` table.
 
 ## Status
 
-Work in progress. The radio receive path, packet parser, and group message
-decryption are functional. Contact persistence, TX path, and repeater
-forwarding logic are not yet implemented.
+Work in progress. The radio receive path, packet parser, and repeating of flood messages is supported.
 
 ---
 

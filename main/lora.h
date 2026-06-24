@@ -41,7 +41,7 @@ typedef struct {
     uint16_t data_len;
     uint8_t rssi;
     uint8_t snr;
-    uint8_t signal_rssi;
+    int8_t signal_rssi;
 } lora_packet_t;
 
 
